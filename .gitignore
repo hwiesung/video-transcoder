@@ -1,0 +1,14 @@
+# Add any directories, files, or patterns you don't want to be tracked by version control
+.idea/
+.firebase/
+node_modules/
+dist/
+package-lock.json
+
+*.swp
+*.swo
+npm-debug.log.*
+bundle.js
+
+*.map
+*-compiled.js

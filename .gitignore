@@ -12,3 +12,6 @@ bundle.js
 
 *.map
 *-compiled.js
+
+*.mp4
+*.avi

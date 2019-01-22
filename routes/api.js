@@ -84,6 +84,8 @@ router.post('/notify/upload', function(req, res) {
 
                                }
                                console.log('File uploaded successfully at '+ data.Location);
+                               fs.unlinkSync(outputFilePath);
+                               fs.unlinkSync(tempFilePath);
                                res.send(JSON.stringify({ret_code:0}));
                            });
 

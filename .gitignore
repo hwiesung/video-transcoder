@@ -3,6 +3,7 @@
 .firebase/
 node_modules/
 dist/
+logs/*.log
 package-lock.json
 
 *.swp

@@ -3,6 +3,8 @@
 # any future command that fails will exit the script
 set -e
 
+export PORT=80
+
 # Delete the old repo
 rm -rf /home/ubuntu/peeple-transcoder/
 

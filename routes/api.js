@@ -83,17 +83,18 @@ router.post('/notify/upload', function(req, res) {
                            const params = {
                                Bucket: config.s3.bucket,
                                Key: outputFileName,
-                               Body: JSON.stringify(data, null, 2)
+                               ContentType: 'video/mp4',
+                               Body: data
                            };
                            logger.info("start upload file");
-                           s3.upload(params, function(s3Err, data) {
+                           s3.upload(params, function(s3Err, result) {
                                if (s3Err){
                                    logger.error('s3 upload failed');
                                    res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
                                }
                                else{
-                                   logger.info('File uploaded successfully at '+ data.Location);
-                                   fs.unlinkSync(outputFilePath);
+                                   logger.info('File uploaded successfully at '+ result.Location);
+                                   //fs.unlinkSync(outputFilePath);
                                    fs.unlinkSync(tempFilePath);
                                    res.send(JSON.stringify({ret_code:0, fileKey:outputFileName, bucket:config.s3.bucket, location:data.Location}));
                                }

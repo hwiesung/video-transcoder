@@ -7,7 +7,7 @@ set -e
 rm -rf /home/ubuntu/peeple-transcoder/
 
 # clone the repo again
-git clone https://gitlab.com/peeple/peeple-transcoder.git
+git clone https://hwiesung:wjdgnltjd1@gitlab.com/peeple/peeple-transcoder.git
 
 pm2 kill
 

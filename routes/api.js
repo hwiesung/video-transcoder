@@ -26,6 +26,11 @@ var app = admin.initializeApp({
 });
 
 
+router.get('/test', function(req, res) {
+    res.send(JSON.stringify({ret_code:0}));
+});
+
+
 /* GET users listing. */
 router.post('/notify/upload', function(req, res) {
     const url = req.body.url;

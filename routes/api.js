@@ -39,9 +39,20 @@ router.get('/test', function(req, res) {
 router.post('/notify/upload', function(req, res) {
     const url = req.body.url;
     const name = req.body.name;
-
+    const secretKey = req.body.secret_key;
     logger.info('input data: '+ JSON.stringify(req.body));
-    logger.error('test');
+
+    if(secretKey != config.serviceAccountKey.private_key_id){
+        res.send(JSON.stringify({ret_code:retCode.WRONG_SECRET_KEY, msg:'Permission Denied'}));
+        throw 'permission denied';
+    }
+
+    if(!url || !name){
+        res.send(JSON.stringify({ret_code:retCode.ERROR, msg:'Invalid Input'}));
+        throw 'input error';
+    }
+
+
 
     axios.request({
         responseType:'arraybuffer',
@@ -96,7 +107,7 @@ router.post('/notify/upload', function(req, res) {
                                    logger.info('File uploaded successfully at '+ result.Location);
                                    //fs.unlinkSync(outputFilePath);
                                    fs.unlinkSync(tempFilePath);
-                                   res.send(JSON.stringify({ret_code:0, fileKey:outputFileName, bucket:config.s3.bucket, location:data.Location}));
+                                   res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket, location:data.Location}));
                                }
                            });
                        }

@@ -3,10 +3,18 @@ var router = express.Router();
 var admin = require("firebase-admin");
 
 var serviceAccount = require("../serviceAccountKey.json");
+var awsKey = require("../awsKey.json");
 
 var axios = require('axios');
 var fs = require('fs');
 
+const AWS = require('aws-sdk');
+const s3 = new AWS.S3({
+    accessKeyId: awsKey.access_key_id,
+    secretAccessKey: awsKey.secret_access_key
+});
+var crypto = require('crypto');
+var moment = require('moment');
 var ffmpeg = require('fluent-ffmpeg');
 
 
@@ -30,12 +38,12 @@ router.post('/notify/upload', function(req, res) {
         url:url,
         method:'get'
     }).then((result)=>{
-        const outputFilename = './temp/'+name;
-        fs.writeFileSync(outputFilename, result.data);
+        const tempFilePath = './temp/'+name;
+        fs.writeFileSync(tempFilePath, result.data);
         console.log('local saved');
 
 
-        ffmpeg.ffprobe(outputFilename, (err, metadata)=>{
+        ffmpeg.ffprobe(tempFilePath, (err, metadata)=>{
            if(err){
                console.log(err);
                res.send(JSON.stringify({ret_code:1, msg:'metadata load failed'}));
@@ -43,19 +51,49 @@ router.post('/notify/upload', function(req, res) {
            else{
                console.log('laod metadata');
                console.log(metadata.format);
-               var command = ffmpeg(outputFilename).on('codecData', (data)=>{
+               let key = crypto.randomBytes(32).toString('hex');
+
+               const outputFileName = moment().valueOf()+'_'+key+'.mp4';
+               const outputFilePath = './temp/'+outputFileName;
+
+               ffmpeg(tempFilePath).on('codecData', (data)=>{
                    console.log(data);
                }).on('start',()=>{
                    console.log('processing start');
 
                }).on('end',(stdout, stderr)=>{
                    console.log('end');
-                   res.send(JSON.stringify({ret_code:0}));
+
+                   fs.readFile(outputFilePath, (err, data) => {
+                       if(err){
+                           console.log(err);
+                           res.send(JSON.stringify({ret_code:1, msg:'ouputFile read failed'}));
+                       }
+                       else{
+                           const params = {
+                               Bucket: 'peeple-video', // pass your bucket name
+                               Key: outputFileName, // file will be saved as testBucket/contacts.csv
+                               Body: JSON.stringify(data, null, 2)
+                           };
+                           console.log("start upload");
+                           s3.upload(params, function(s3Err, data) {
+                               if (s3Err){
+                                   console.log(s3Err);
+                                   res.send(JSON.stringify({ret_code:1, msg:'s3 upload failed'}));
+                                   throw s3Err;
+
+                               }
+                               console.log('File uploaded successfully at '+ data.Location);
+                               res.send(JSON.stringify({ret_code:0}));
+                           });
+
+                       }
+                   });
 
                }).on('error', (err)=>{
                    console.log("error occured:"+err.message);
                    res.send(JSON.stringify({ret_code:1, msg:'transcoding failed'}));
-               }).output('./temp/'+name+'.mp4').run();
+               }).output(outputFilePath).run();
            }
 
         });

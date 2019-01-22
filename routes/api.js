@@ -2,24 +2,25 @@ var express = require('express');
 var router = express.Router();
 var admin = require("firebase-admin");
 
-var serviceAccount = require("../serviceAccountKey.json");
-var awsKey = require("../awsKey.json");
-
 var axios = require('axios');
 var fs = require('fs');
 
 const AWS = require('aws-sdk');
-const s3 = new AWS.S3({
-    accessKeyId: awsKey.access_key_id,
-    secretAccessKey: awsKey.secret_access_key
-});
+
 var crypto = require('crypto');
 var moment = require('moment');
 var ffmpeg = require('fluent-ffmpeg');
 
+var config = require('config');
+
+const s3 = new AWS.S3({
+    accessKeyId: config.awsKey.access_key_id,
+    secretAccessKey: config.awsKey.secret_access_key
+});
+
 
 var app = admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(config.serviceAccountKey),
     databaseURL: "https://peeple-7d3de.firebaseio.com",
     projectId: "peeple-7d3de",
     uid:"transcoder"

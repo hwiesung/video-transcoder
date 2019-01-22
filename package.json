@@ -5,11 +5,13 @@
   "scripts": {
     "start": "pm2 start bin/www -i 0",
     "stop": "pm2 stop all",
-    "restart": "pm2 restart bin/www"
+    "restart": "pm2 restart bin/www",
+    "dev": "node ./bin/www"
   },
   "dependencies": {
     "aws-sdk": "^2.391.0",
     "axios": "^0.18.0",
+    "config": "^3.0.1",
     "cookie-parser": "~1.4.3",
     "debug": "~2.6.9",
     "express": "~4.16.0",
@@ -18,6 +20,7 @@
     "moment": "^2.24.0",
     "morgan": "~1.9.0",
     "multer": "^1.4.1",
-    "multer-s3": "^2.9.0"
+    "multer-s3": "^2.9.0",
+    "winston": "^3.1.0"
   }
 }

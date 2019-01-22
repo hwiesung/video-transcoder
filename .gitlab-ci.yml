@@ -1,3 +1,6 @@
+image: node:10.14.0
+
+
 stages:
   - deploy
 

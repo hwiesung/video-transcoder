@@ -1,8 +1,9 @@
 #!/bin/bash
 
+set -e
 
-echo -e "$PRIVATE_KEY" > /root/.ssh/id_rsa
-chmod 600 /root/.ssh/id_rsa
+eval $(ssh-agent -s)
+echo "$PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
 
 ./deploy/disableHostKeyChecking.sh
 

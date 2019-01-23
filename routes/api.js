@@ -23,103 +23,100 @@ const s3 = new AWS.S3({
 
 
 var app = admin.initializeApp({
-    credential: admin.credential.cert(config.serviceAccountKey),
-    databaseURL: "https://peeple-7d3de.firebaseio.com",
-    projectId: "peeple-7d3de",
-    uid:"transcoder"
+    credential: admin.credential.cert(config.firebase.serviceAccountKey),
+    databaseURL: config.firebase.database,
+    projectId: config.firebase.project_id,
+    storageBucket: config.firebase.storage,
+    databaseAuthVariableOverride: {
+        uid: "transcoder"
+    }
 });
 
 
-router.get('/test', function(req, res) {
-    res.send(JSON.stringify({ret_code:0}));
-});
+var bucket = admin.storage().bucket();
 
 
 /* GET users listing. */
 router.post('/notify/upload', function(req, res) {
-    const url = req.body.url;
+    const path = req.body.path;
     const name = req.body.name;
     const secretKey = req.body.secret_key;
     logger.info('input data: '+ JSON.stringify(req.body));
 
-    if(secretKey != config.serviceAccountKey.private_key_id){
+    if(secretKey != config.firebase.serviceAccountKey.private_key_id){
         res.send(JSON.stringify({ret_code:retCode.WRONG_SECRET_KEY, msg:'Permission Denied'}));
         throw 'permission denied';
     }
 
-    if(!url || !name){
+    if(!path || !name){
         res.send(JSON.stringify({ret_code:retCode.ERROR, msg:'Invalid Input'}));
         throw 'input error';
     }
 
+    const tempFilePath = './temp/'+name;
 
-
-    axios.request({
-        responseType:'arraybuffer',
-        url:url,
-        method:'get'
-    }).then((result)=>{
-        const tempFilePath = './temp/'+name;
-        fs.writeFileSync(tempFilePath, result.data);
-        logger.info('local temp file saved: '+tempFilePath);
-
-
+    bucket.file(path).download({destination: tempFilePath}).then(()=>{
         ffmpeg.ffprobe(tempFilePath, (err, metadata)=>{
-           if(err){
-               logger.error('metadata load fail');
-               res.send(JSON.stringify({ret_code:retCode.FAIL_LOAD_METADATA, msg:'metadata load failed'}));
-           }
-           else{
-               logger.info('metadata:'+JSON.stringify(metadata.format));
+            if(err){
+                logger.error('metadata load fail');
+                res.send(JSON.stringify({ret_code:retCode.FAIL_LOAD_METADATA, msg:'metadata load failed'}));
+                throw 'metadata load failed';
+            }
 
-               let key = crypto.randomBytes(32).toString('hex');
+            //TODO : metadata 정보에 따른 분기 처리
 
-               const outputFileName = moment().valueOf()+'_'+key+'.mp4';
-               const outputFilePath = './temp/'+outputFileName;
+            logger.info('metadata:'+JSON.stringify(metadata.format));
 
-               ffmpeg(tempFilePath).on('codecData', (data)=>{
-                   logger.info('format:' + data.format +', video:'+data.video +', audio:'+data.audio+' , duration:'+data.duration);
-               }).on('start',()=>{
-                   logger.info('processing start');
-               }).on('end',(stdout, stderr)=>{
-                   logger.info('processing finish');
+            let key = crypto.randomBytes(32).toString('hex');
 
-                   fs.readFile(outputFilePath, (err, data) => {
-                       if(err){
-                           logger.error('outputFile read failed');
-                           res.send(JSON.stringify({ret_code:retCode.FAIL_READ_OUTPUT_FILE, msg:'ouputFile read failed'}));
-                       }
-                       else{
+            const outputFileName = moment().valueOf()+'_'+key+'.mp4';
+            const outputFilePath = './temp/'+outputFileName;
 
-                           const params = {
-                               Bucket: config.s3.bucket,
-                               Key: outputFileName,
-                               ContentType: 'video/mp4',
-                               Body: data
-                           };
-                           logger.info("start upload file");
-                           s3.upload(params, function(s3Err, result) {
-                               if (s3Err){
-                                   logger.error('s3 upload failed');
-                                   res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
-                               }
-                               else{
-                                   logger.info('File uploaded successfully at '+ result.Location);
-                                   //fs.unlinkSync(outputFilePath);
-                                   fs.unlinkSync(tempFilePath);
-                                   res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket, location:data.Location}));
-                               }
-                           });
-                       }
-                   });
-               }).on('error', (err)=>{
-                   logger.error('transcoding failed :' +err.message);
-                   res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
-               }).output(outputFilePath).run();
-           }
+            ffmpeg(tempFilePath).on('codecData', (data)=>{
+                logger.info('format:' + data.format +', video:'+data.video +', audio:'+data.audio+' , duration:'+data.duration);
+            }).on('start',()=>{
+                logger.info('processing start : ' + outputFileName);
+            }).on('end',(stdout, stderr)=>{
+                logger.info('processing finish : '+outputFileName);
+
+                fs.readFile(outputFilePath, (err, data) => {
+                    if(err){
+                        logger.error('outputFile read failed');
+                        res.send(JSON.stringify({ret_code:retCode.FAIL_READ_OUTPUT_FILE, msg:'ouputFile read failed'}));
+                        throw 'outputFile read failed';
+                    }
+                    const params = {
+                        Bucket: config.s3.bucket,
+                        Key: outputFileName,
+                        ContentType: 'video/mp4',
+                        Body: data
+                    };
+                    logger.info("start upload file :" + outputFileName);
+
+                    s3.upload(params, (s3Err, result)=> {
+                        if (s3Err){
+                            logger.error('s3 upload failed');
+                            res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
+                            throw 's3 upload failed';
+                        }
+
+                        logger.info('File uploaded successfully at '+ result.Location);
+                        fs.unlinkSync(outputFilePath);
+                        fs.unlinkSync(tempFilePath);
+                        res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket, location:data.Location}));
+                    });
+
+                });
+            }).on('error', (err)=>{
+                logger.error('transcoding failed :' +err.message);
+                res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
+            }).output(outputFilePath).run();
         });
 
 
+    }).catch((err)=>{
+        logger.error(err);
+        res.send(JSON.stringify({ret_code:retCode.ERROR, msg:err}));
     });
 
 });

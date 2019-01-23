@@ -71,7 +71,11 @@ router.post('/notify/upload', function(req, res) {
 
             const outputFileName = moment().valueOf()+'_'+key+'.mp4';
             const outputFilePath = './temp/'+outputFileName;
+            //const thumbnailName = moment().valueOf()+'_'+key+'.png';
+            const thumbnailName = moment().valueOf()+'_'+key+'.png';
+            const thumbnailPath = './temp/'+thumbnailName;
 
+            let duration = Math.floor(metadata.format.duration / 2);
             ffmpeg(tempFilePath).on('codecData', (data)=>{
                 logger.info('format:' + data.format +', video:'+data.video +', audio:'+data.audio+' , duration:'+data.duration);
             }).on('start',()=>{
@@ -85,17 +89,17 @@ router.post('/notify/upload', function(req, res) {
                         res.send(JSON.stringify({ret_code:retCode.FAIL_READ_OUTPUT_FILE, msg:'ouputFile read failed'}));
                         throw 'outputFile read failed';
                     }
-                    const params = {
+
+                    logger.info("start upload file :" + outputFileName);
+
+                    s3.upload( {
                         Bucket: config.s3.bucket,
                         Key: outputFileName,
                         ContentType: 'video/mp4',
                         Body: data
-                    };
-                    logger.info("start upload file :" + outputFileName);
-
-                    s3.upload(params, (s3Err, result)=> {
-                        if (s3Err){
-                            logger.error('s3 upload failed');
+                    }, (err, result)=> {
+                        if (err){
+                            logger.error('s3 upload failed:'+outputFileName);
                             res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
                             throw 's3 upload failed';
                         }
@@ -103,14 +107,42 @@ router.post('/notify/upload', function(req, res) {
                         logger.info('File uploaded successfully at '+ result.Location);
                         fs.unlinkSync(outputFilePath);
                         fs.unlinkSync(tempFilePath);
-                        res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket, location:data.Location}));
+
+                        fs.readFile(thumbnailPath, (err, data) => {
+                            if(err){
+                                logger.error('outputFile read failed');
+                                res.send(JSON.stringify({ret_code:retCode.FAIL_READ_OUTPUT_FILE, msg:'ouputFile read failed'}));
+                                throw 'outputFile read failed';
+                            }
+
+                            logger.info("start upload file :" + thumbnailName);
+
+                            s3.upload( {
+                                Bucket: config.s3.bucket,
+                                Key: thumbnailName,
+                                ContentType: 'image/png',
+                                Body: data
+                            }, (err, result)=> {
+                                if (err){
+                                    logger.error('s3 upload failed:'+thumbnailName);
+                                    res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
+                                    throw 's3 upload failed';
+                                }
+
+                                logger.info('File uploaded successfully at '+ result.Location);
+                                fs.unlinkSync(thumbnailPath);
+
+                                res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, bucket:config.s3.bucket}));
+
+                            });
+                        });
                     });
 
                 });
             }).on('error', (err)=>{
                 logger.error('transcoding failed :' +err.message);
                 res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
-            }).output(outputFilePath).run();
+            }).output(outputFilePath).audioCodec('aac').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(duration).run();
         });
 
 

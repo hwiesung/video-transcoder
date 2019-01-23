@@ -18,7 +18,8 @@ const retCode = require('../common/retCode');
 
 const s3 = new AWS.S3({
     accessKeyId: config.awsKey.access_key_id,
-    secretAccessKey: config.awsKey.secret_access_key
+    secretAccessKey: config.awsKey.secret_access_key,
+    region:'ap-northeast-2'
 });
 
 

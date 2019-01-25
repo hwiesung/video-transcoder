@@ -143,7 +143,7 @@ router.post('/notify/upload', function(req, res) {
             }).on('error', (err)=>{
                 logger.error('transcoding failed :' +err.message);
                 res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
-            }).output(outputFilePath).audioCodec('aac').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(duration).run();
+            }).output(outputFilePath).audioCodec('aac').videoCodec('libx264').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(duration).run();
         });
 
 

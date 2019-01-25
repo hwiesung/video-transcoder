@@ -41,6 +41,7 @@ var bucket = admin.storage().bucket();
 router.post('/notify/upload', function(req, res) {
     const path = req.body.path;
     const name = req.body.name;
+
     const secretKey = req.body.secret_key;
     logger.info('input data: '+ JSON.stringify(req.body));
 
@@ -76,7 +77,11 @@ router.post('/notify/upload', function(req, res) {
             const thumbnailName = moment().valueOf()+'_'+key+'.png';
             const thumbnailPath = './temp/'+thumbnailName;
 
-            let duration = Math.floor(metadata.format.duration / 2);
+            const previewName = moment().valueOf()+'_'+key+'_preview.png';
+            const previewPath = './temp/'+previewName;
+
+
+            const thumbnailPos = req.body.thumbnail_pos ? req.body.thumbnail_pos : Math.floor(metadata.format.duration / 2);
             ffmpeg(tempFilePath).on('codecData', (data)=>{
                 logger.info('format:' + data.format +', video:'+data.video +', audio:'+data.audio+' , duration:'+data.duration);
             }).on('start',()=>{
@@ -133,7 +138,35 @@ router.post('/notify/upload', function(req, res) {
                                 logger.info('File uploaded successfully at '+ result.Location);
                                 fs.unlinkSync(thumbnailPath);
 
-                                res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, bucket:config.s3.bucket}));
+                                fs.readFile(previewPath, (err, data) => {
+                                    if(err){
+                                        logger.error('outputFile read failed');
+                                        res.send(JSON.stringify({ret_code:retCode.FAIL_READ_OUTPUT_FILE, msg:'ouputFile read failed'}));
+                                        throw 'outputFile read failed';
+                                    }
+
+                                    logger.info("start upload file :" + previewName);
+
+                                    s3.upload( {
+                                        Bucket: config.s3.bucket,
+                                        Key: previewName,
+                                        ContentType: 'image/png',
+                                        Body: data
+                                    }, (err, result)=> {
+                                        if (err){
+                                            logger.error('s3 upload failed:'+previewName);
+                                            res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
+                                            throw 's3 upload failed';
+                                        }
+
+                                        logger.info('File uploaded successfully at '+ result.Location);
+                                        fs.unlinkSync(previewPath);
+
+                                        res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, preview_key:previewName, bucket:config.s3.bucket}));
+
+                                    });
+                                });
+
 
                             });
                         });
@@ -143,7 +176,7 @@ router.post('/notify/upload', function(req, res) {
             }).on('error', (err)=>{
                 logger.error('transcoding failed :' +err.message);
                 res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
-            }).output(outputFilePath).audioCodec('aac').videoCodec('libx264').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(duration).run();
+            }).output(outputFilePath).audioCodec('aac').videoCodec('libx264').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(thumbnailPos).output(previewPath).outputOptions('-frames', '1').noAudio().seek(0).run();
         });
 
 

@@ -36,9 +36,86 @@ var app = admin.initializeApp({
 
 var bucket = admin.storage().bucket();
 
+router.post('/upload/image', function(req, res) {
+    const path = req.body.path;
+    const name = req.body.name;
+
+    const secretKey = req.body.secret_key;
+    logger.info('input image data: '+ JSON.stringify(req.body));
+
+    if(secretKey != config.firebase.serviceAccountKey.private_key_id){
+        res.send(JSON.stringify({ret_code:retCode.WRONG_SECRET_KEY, msg:'Permission Denied'}));
+        throw 'permission denied';
+    }
+
+    if(!path || !name){
+        res.send(JSON.stringify({ret_code:retCode.ERROR, msg:'Invalid Input'}));
+        throw 'input error';
+    }
+
+    const tempFilePath = './temp/'+name;
+    console.log(tempFilePath);
+    bucket.file(path).download({destination: tempFilePath}).then(()=> {
+        ffmpeg.ffprobe(tempFilePath, (err, metadata) => {
+            if(err){
+                logger.error('metadata load fail');
+                res.send(JSON.stringify({ret_code:retCode.FAIL_LOAD_METADATA, msg:'metadata load failed'}));
+                throw 'metadata load failed';
+            }
+            let key = crypto.randomBytes(32).toString('hex');
+            const outputFileName = moment().valueOf()+'_'+key+'.png';
+            const outputFilePath = './temp/'+outputFileName;
+            //TODO : metadata 정보에 따른 분기 처리
+
+            logger.info('metadata:'+JSON.stringify(metadata.format));
+
+            ffmpeg(tempFilePath).on('codecData', (data)=>{
+                logger.info(JSON.stringify(data));
+            }).on('start',()=>{
+                logger.info('processing start : ' + outputFileName);
+            }).on('end',(stdout, stderr)=>{
+                logger.info('processing finish : '+outputFileName);
+
+                fs.readFile(outputFilePath, (err, data) => {
+                    if(err){
+                        logger.error('outputFile read failed');
+                        res.send(JSON.stringify({ret_code:retCode.FAIL_READ_OUTPUT_FILE, msg:'ouputFile read failed'}));
+                        throw 'outputFile read failed';
+                    }
+
+                    logger.info("start upload file :" + outputFileName);
+
+                    s3.upload( {
+                        Bucket: config.s3.bucket,
+                        Key: outputFileName,
+                        ContentType: 'image/png',
+                        Body: data
+                    }, (err, result)=> {
+                        if (err){
+                            logger.error('s3 upload failed:'+outputFileName);
+                            res.send(JSON.stringify({ret_code:retCode.FAIL_UPLOAD_TO_S3, msg:'s3 upload failed'}));
+                            throw 's3 upload failed';
+                        }
+
+                        logger.info('File uploaded successfully at '+ result.Location);
+                        //fs.unlinkSync(outputFilePath);
+                        res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket}));
+                    });
+
+                });
+            }).on('error', (err)=>{
+                logger.error('transcoding failed :' +err.message);
+                res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
+            }).output(outputFilePath).outputOptions('-frames', '1').run();
+
+        });
+    }).catch((err)=>{
+        console.log(err);
+    });
+});
 
 /* GET users listing. */
-router.post('/notify/upload', function(req, res) {
+router.post('/upload/video', function(req, res) {
     const path = req.body.path;
     const name = req.body.name;
 

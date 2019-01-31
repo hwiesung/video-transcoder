@@ -88,7 +88,8 @@ router.post('/upload/image', function(req, res) {
                 }
 
                 logger.info('File uploaded successfully at '+ result.Location);
-                //fs.unlinkSync(outputFilePath);
+                fs.unlinkSync(outputFilePath);
+                fs.unlinkSync(tempFilePath);
                 res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket}));
             });
 

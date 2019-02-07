@@ -325,10 +325,10 @@ router.post('/upload/video', (req, res) => {
         throw 'input error';
     }
 
-    res.send(JSON.stringify({ret_code:0}));
+
 
     return transcodingJob(uid, topicKey, videoKey, name, path).then(()=>{
-        console.log('done');
+        res.send(JSON.stringify({ret_code:0}));
     });
 });
 

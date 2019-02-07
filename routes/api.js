@@ -118,6 +118,8 @@ router.post('/upload/video', function(req, res) {
         throw 'input error';
     }
 
+    res.send(JSON.stringify({ret_code:0, file_key:'outputFileName', thumbnail_key:'thumbnailName', preview_key:'previewName', bucket:config.s3.bucket}));
+
     const tempFilePath = './temp/'+name;
 
     bucket.file(path).download({destination: tempFilePath}).then(()=>{
@@ -225,7 +227,7 @@ router.post('/upload/video', function(req, res) {
                                         logger.info('File uploaded successfully at '+ result.Location);
                                         fs.unlinkSync(previewPath);
 
-                                        res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, preview_key:previewName, bucket:config.s3.bucket}));
+                                        //res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, preview_key:previewName, bucket:config.s3.bucket}));
 
                                     });
                                 });
@@ -241,8 +243,6 @@ router.post('/upload/video', function(req, res) {
                 res.send(JSON.stringify({ret_code:retCode.FAIL_TRANSCODING, msg:'transcoding failed'}));
             }).output(outputFilePath).audioCodec('aac').videoCodec('libx264').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(thumbnailPos).output(previewPath).outputOptions('-frames', '1').noAudio().seek(0).run();
         });
-
-
     }).catch((err)=>{
         logger.error(err);
         res.send(JSON.stringify({ret_code:retCode.ERROR, msg:err}));

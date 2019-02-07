@@ -288,8 +288,14 @@ router.post('/upload/video', (req, res) => {
 
                                         updates['/notification/'+uid+'/'+notiKey] = notification;
 
+                                        logger.info(JSON.stringify(updates));
 
-                                        app.database().ref().update(updates);
+
+                                        app.database().ref().update(updates).then(()=>{
+                                            logger.info('video updated');
+                                        }).catch((err)=>{
+                                            logger.error(err);
+                                        });
                                         //res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, preview_key:previewName, bucket:config.s3.bucket}));
 
                                     });

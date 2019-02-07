@@ -245,7 +245,7 @@ router.post('/upload/video', (req, res) => {
                                         Key: previewName,
                                         ContentType: 'image/png',
                                         Body: data
-                                    }, (err, result)=> {
+                                    }, async (err, result)=> {
                                         if (err){
                                             logger.error('s3 upload failed:'+previewName);
                                             app.database().ref('/request/video/'+uid+'/'+videoKey+'/result').set(RET_CODE.FAIL_UPLOAD_TO_S3);
@@ -261,7 +261,7 @@ router.post('/upload/video', (req, res) => {
                                         const streaming_url = 'http://ec2-13-125-219-151.ap-northeast-2.compute.amazonaws.com:3001/streaming/'+config.s3.bucket+'/'+outputFileName;
                                         const thumbnail_url = 'http://ec2-13-125-219-151.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+thumbnailName;
                                         const preview_url = 'http://ec2-13-125-219-151.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+previewName;
-
+                                        logger.info('111');
                                         const video = {
                                             create_time : now,
                                             streaming_url : streaming_url,
@@ -275,7 +275,7 @@ router.post('/upload/video', (req, res) => {
                                         updates['/video/'+videoKey] = video;
                                         updates['/request/video/'+uid+'/'+videoKey+'/complete_time'] = now;
                                         updates['/request/video/'+uid+'/'+videoKey+'/phrase'] = TRNAS_PHRASE.COMPLETE;
-
+                                        logger.info('222');
 
                                         const notification = {
                                             code: 'UPLOAD_COMPLETE',
@@ -284,18 +284,18 @@ router.post('/upload/video', (req, res) => {
 
                                         let notiKey = app.database().ref('/notification/'+uid).push().key;
 
-
-
                                         updates['/notification/'+uid+'/'+notiKey] = notification;
-
+                                        logger.info('333');
                                         logger.info(JSON.stringify(updates));
 
 
-                                        app.database().ref().update(updates).then(()=>{
+                                        try{
+                                            await app.database().ref().update(updates);
                                             logger.info('video updated');
-                                        }).catch((err)=>{
+                                        }catch(err){
                                             logger.error(err);
-                                        });
+                                        }
+
                                         //res.send(JSON.stringify({ret_code:0, file_key:outputFileName, thumbnail_key:thumbnailName, preview_key:previewName, bucket:config.s3.bucket}));
 
                                     });

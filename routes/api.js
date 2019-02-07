@@ -138,7 +138,7 @@ async function transcodingJob(uid, topicKey, videoKey, name, path){
             if(err){
                 logger.error('metadata load fail');
                 app.database().ref('/request/video/'+uid+'/'+videoKey+'/result').set(RET_CODE.FAIL_LOAD_METADATA);
-                reject(new Error('metadata load failed');
+                reject(new Error('metadata load failed'));
             }
 
             //TODO : metadata 정보에 따른 분기 처리

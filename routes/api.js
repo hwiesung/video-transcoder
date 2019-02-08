@@ -19,7 +19,7 @@ var Jimp = require('jimp');
 const s3 = new AWS.S3({
     accessKeyId: config.awsKey.access_key_id,
     secretAccessKey: config.awsKey.secret_access_key,
-    region:'ap-northeast-2'
+    region:config.s3.region
 });
 
 let app = admin.initializeApp({

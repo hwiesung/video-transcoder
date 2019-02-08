@@ -1,10 +1,10 @@
 {
   "awsKey": {
-    "access_key_id":"AKIAJLBC4A3R7VIUITEA",
-    "secret_access_key":"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"
+    "access_key_id":"AKIAIPVSC4QAJMAF3ZKQ",
+    "secret_access_key":"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"
   },
   "s3": {
-    "bucket": "peeple-video"
+    "bucket": "peeple-storage"
   },
   "firebase": {
     "project_id": "peeple-7d3de",

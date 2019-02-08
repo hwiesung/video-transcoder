@@ -111,7 +111,8 @@ router.post('/upload/image', function(req, res) {
                 logger.info('File uploaded successfully at '+ result.Location);
                 fs.unlinkSync(outputFilePath);
                 fs.unlinkSync(tempFilePath);
-                res.send(JSON.stringify({ret_code:0, file_key:outputFileName, bucket:config.s3.bucket}));
+                let image_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+outputFileName;
+                res.send(JSON.stringify({ret_code:0, image_url:image_url}));
             });
 
         });
@@ -240,9 +241,9 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
 
                                         let updates = {};
 
-                                        const streaming_url = 'http://ec2-13-125-219-151.ap-northeast-2.compute.amazonaws.com:3001/streaming/'+config.s3.bucket+'/'+outputFileName;
-                                        const thumbnail_url = 'http://ec2-13-125-219-151.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+thumbnailName;
-                                        const preview_url = 'http://ec2-13-125-219-151.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+previewName;
+                                        const streaming_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/streaming/'+config.s3.bucket+'/'+outputFileName;
+                                        const thumbnail_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+thumbnailName;
+                                        const preview_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+previewName;
 
                                         updates['/request/'+type+'/'+uid+'/'+key+'/streaming_url'] = streaming_url;
                                         updates['/request/'+type+'/'+uid+'/'+key+'/thumbnail_url'] = thumbnail_url;

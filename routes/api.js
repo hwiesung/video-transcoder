@@ -146,15 +146,15 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
             logger.info('metadata:'+JSON.stringify(metadata.format));
             app.database().ref('/request/'+type+'/'+uid+'/'+key+'/phrase').set(TRNAS_PHRASE.LOAD_METADATA);
 
-            let key = crypto.randomBytes(32).toString('hex');
+            let fileKey = crypto.randomBytes(32).toString('hex');
 
-            const outputFileName = moment().valueOf()+'_'+key+'.mp4';
+            const outputFileName = moment().valueOf()+'_'+fileKey+'.mp4';
             const outputFilePath = './temp/'+outputFileName;
 
-            const thumbnailName = moment().valueOf()+'_'+key+'.png';
+            const thumbnailName = moment().valueOf()+'_'+fileKey+'.png';
             const thumbnailPath = './temp/'+thumbnailName;
 
-            const previewName = moment().valueOf()+'_'+key+'_preview.png';
+            const previewName = moment().valueOf()+'_'+fileKey+'_preview.png';
             const previewPath = './temp/'+previewName;
 
             thumbnailPos = thumbnailPos ? thumbnailPos : Math.floor(metadata.format.duration / 2);

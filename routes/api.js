@@ -22,8 +22,7 @@ const s3 = new AWS.S3({
     region:'ap-northeast-2'
 });
 
-
-var app = admin.initializeApp({
+let app = admin.initializeApp({
     credential: admin.credential.cert(config.firebase.serviceAccountKey),
     databaseURL: config.firebase.database,
     projectId: config.firebase.project_id,

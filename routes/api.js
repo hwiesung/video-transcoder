@@ -168,7 +168,9 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
             }
 
 
-            thumbnailPos = thumbnailPos ? thumbnailPos : (metadata.format.duration / 2.0);
+            thumbnailPos = thumbnailPos ? thumbnailPos : 1;
+            console.log(metadata.format.duration);
+            console.log(thumbnailPos);
             let shortPos = (thumbnailPos + 1) > metadata.format.duration ? (metadata.format.duration-1) : thumbnailPos;
 
             ffmpeg(tempFilePath).on('codecData', (data)=>{
@@ -206,7 +208,7 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
                         app.database().ref('/request/'+type+'/'+uid+'/'+key+'/phrase').set(TRNAS_PHRASE.UPLOAD_VIDEO_FILE);
                         fs.readFile(thumbnailPath, (err, data) => {
                             if(err){
-                                logger.error('outputFile read failed');
+                                logger.error('thumb read failed');
                                 app.database().ref('/request/'+type+'/'+uid+'/'+key+'/result').set(RET_CODE.FAIL_DOWNLOAD_FILE);
                                 reject(new Error( 'outputFile read failed'));
                             }

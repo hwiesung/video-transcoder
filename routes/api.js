@@ -286,7 +286,7 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
                                                 updates['/request/'+type+'/'+uid+'/'+key+'/streaming_url'] = streaming_url;
                                                 updates['/request/'+type+'/'+uid+'/'+key+'/thumbnail_url'] = thumbnail_url;
                                                 updates['/request/'+type+'/'+uid+'/'+key+'/preview_url'] = preview_url;
-                                                updates['/request/'+type+'/'+uid+'/'+key+'/short_url'] = short_url;
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/short_video_url'] = short_url;
                                                 updates['/request/'+type+'/'+uid+'/'+key+'/complete_time'] = moment().valueOf();
                                                 updates['/request/'+type+'/'+uid+'/'+key+'/phrase'] = TRNAS_PHRASE.COMPLETE;
                                                 updates['/request/'+type+'/'+uid+'/'+key+'/result'] = RET_CODE.SUCCESS;

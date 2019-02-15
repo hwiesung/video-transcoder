@@ -41,6 +41,7 @@ const RET_CODE = {
     FAIL_TRANSCODING : 1003,
     WRONG_SECRET_KEY : 1004,
     FAIL_DOWNLOAD_FILE : 1005,
+    RUNNING_TIME : 1006
 
 };
 
@@ -130,7 +131,7 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
         await bucket.file(path).download({destination: tempFilePath});
     }catch(err){
         logger.error(err);
-        app.database().ref('/request/'+type+'/'+uid+'/'+key+'/result').set(constant.RET_CODE.FAIL_DOWNLOAD_FILE);
+        app.database().ref('/request/'+type+'/'+uid+'/'+key+'/result').set(RET_CODE.FAIL_DOWNLOAD_FILE);
     }
 
     await new Promise( (resolve, reject)=>{
@@ -157,7 +158,19 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
             const previewName = moment().valueOf()+'_'+fileKey+'_preview.png';
             const previewPath = './temp/'+previewName;
 
-            thumbnailPos = thumbnailPos ? thumbnailPos : Math.floor(metadata.format.duration / 2);
+            const shortVideoName = moment().valueOf()+'_'+fileKey+'_short.mp4';
+            const shortVideoPath = './temp/'+shortVideoName;
+
+            if(metadata.format.duration < 3 || metadata.format.duration > 60){
+                logger.error('metadata load fail');
+                app.database().ref('/request/'+type+'/'+uid+'/'+key+'/result').set(RET_CODE.RUNNING_TIME);
+                reject(new Error('running time error'));
+            }
+
+
+            thumbnailPos = thumbnailPos ? thumbnailPos : (metadata.format.duration / 2.0);
+            let shortPos = (thumbnailPos + 1) > metadata.format.duration ? (metadata.format.duration-1) : thumbnailPos;
+
             ffmpeg(tempFilePath).on('codecData', (data)=>{
                 logger.info('format:' + data.format +', video:'+data.video +', audio:'+data.audio+' , duration:'+data.duration);
             }).on('start',()=>{
@@ -239,29 +252,57 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
                                         logger.info('File uploaded successfully at '+ result.Location);
                                         fs.unlinkSync(previewPath);
 
-                                        let updates = {};
+                                        fs.readFile(shortVideoPath, (err, data) => {
+                                            if(err){
+                                                logger.error('outputFile read failed');
+                                                app.database().ref('/request/'+type+'/'+uid+'/'+key+'/result').set(RET_CODE.FAIL_DOWNLOAD_FILE);
+                                                reject(new Error( 'outputFile read failed'));
+                                            }
 
-                                        const streaming_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/streaming/'+config.s3.bucket+'/'+outputFileName;
-                                        const thumbnail_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+thumbnailName;
-                                        const preview_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+previewName;
+                                            logger.info("start upload file :" + shortVideoName);
 
-                                        updates['/request/'+type+'/'+uid+'/'+key+'/streaming_url'] = streaming_url;
-                                        updates['/request/'+type+'/'+uid+'/'+key+'/thumbnail_url'] = thumbnail_url;
-                                        updates['/request/'+type+'/'+uid+'/'+key+'/preview_url'] = preview_url;
-                                        updates['/request/'+type+'/'+uid+'/'+key+'/complete_time'] = moment().valueOf();
-                                        updates['/request/'+type+'/'+uid+'/'+key+'/phrase'] = TRNAS_PHRASE.COMPLETE;
-                                        updates['/request/'+type+'/'+uid+'/'+key+'/result'] = RET_CODE.SUCCESS;
+                                            s3.upload( {
+                                                Bucket: config.s3.bucket,
+                                                Key: shortVideoName,
+                                                ContentType: 'video/mp4',
+                                                Body: data
+                                            }, async (err, result)=> {
+                                                if (err){
+                                                    logger.error('s3 upload failed:'+previewName);
+                                                    await app.database().ref('/request/'+type+'/'+uid+'/'+key+'/result').set(RET_CODE.FAIL_UPLOAD_TO_S3);
+                                                    reject(new Error( 's3 upload failed'));
+                                                }
 
-                                        logger.info(JSON.stringify(updates));
+                                                logger.info('File uploaded successfully at '+ result.Location);
+                                                fs.unlinkSync(shortVideoPath);
 
-                                        try{
-                                            await app.database().ref().update(updates);
-                                            logger.info('video updated');
-                                        }catch(err){
-                                            logger.error(err);
-                                        }
+                                                let updates = {};
 
-                                        resolve();
+                                                const streaming_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/streaming/'+config.s3.bucket+'/'+outputFileName;
+                                                const short_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/streaming/'+config.s3.bucket+'/'+shortVideoName;
+                                                const thumbnail_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+thumbnailName;
+                                                const preview_url = 'http://ec2-13-125-237-174.ap-northeast-2.compute.amazonaws.com:3001/image/'+config.s3.bucket+'/'+previewName;
+
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/streaming_url'] = streaming_url;
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/thumbnail_url'] = thumbnail_url;
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/preview_url'] = preview_url;
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/short_url'] = short_url;
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/complete_time'] = moment().valueOf();
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/phrase'] = TRNAS_PHRASE.COMPLETE;
+                                                updates['/request/'+type+'/'+uid+'/'+key+'/result'] = RET_CODE.SUCCESS;
+
+                                                logger.info(JSON.stringify(updates));
+
+                                                try{
+                                                    await app.database().ref().update(updates);
+                                                    logger.info('video updated');
+                                                }catch(err){
+                                                    logger.error(err);
+                                                }
+
+                                                resolve();
+                                            });
+                                        });
                                     });
                                 });
 
@@ -273,8 +314,8 @@ async function transcodingJob(uid, type, key, name, path, thumbnailPos){
                 });
             }).on('error', (err)=>{
                 logger.error('transcoding failed :' +err.message);
-                app.database().ref('/request/video/'+uid+'/'+key+'/result').set(constant.RET_CODE.FAIL_TRANSCODING);
-            }).output(outputFilePath).audioCodec('aac').videoCodec('libx264').output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(thumbnailPos).output(previewPath).outputOptions('-frames', '1').noAudio().seek(0).run();
+                app.database().ref('/request/video/'+uid+'/'+key+'/result').set(RET_CODE.FAIL_TRANSCODING);
+            }).output(outputFilePath).audioCodec('aac').videoCodec('libx264').output(shortVideoPath).size('640x?').autopad().noAudio().seekInput(shortPos).seek(shortPos+1).output(thumbnailPath).outputOptions('-frames', '1').noAudio().seek(thumbnailPos).output(previewPath).outputOptions('-frames', '1').noAudio().seek(0).run();
         });
     });
 
